@@ -1,0 +1,605 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Music Generator</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #141e30, #493b80);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 750px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.09);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #c4b5fd;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #ddd6fe;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin: 15px 0 8px;
+            font-weight: bold;
+        }
+
+        select {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #fff;
+            color: #222;
+        }
+
+        .buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            min-width: 120px;
+            padding: 13px 15px;
+            border: none;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .generate {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .play {
+            background: #10b981;
+            color: white;
+        }
+
+        .stop {
+            background: #ef4444;
+            color: white;
+        }
+
+        .download {
+            background: #fbbf24;
+            color: #222;
+        }
+
+        .visualizer {
+            display: flex;
+            align-items: end;
+            justify-content: center;
+            gap: 5px;
+            height: 150px;
+            padding: 15px;
+            margin-top: 25px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+        }
+
+        .bar {
+            width: 7%;
+            height: 10px;
+            min-height: 10px;
+            border-radius: 5px 5px 0 0;
+            background: linear-gradient(to top, #8b5cf6, #67e8f9);
+            transition: height 0.15s;
+        }
+
+        .keyboard {
+            display: flex;
+            height: 100px;
+            margin-top: 20px;
+            gap: 3px;
+        }
+
+        .key {
+            flex: 1;
+            background: white;
+            border-radius: 0 0 6px 6px;
+            border: 1px solid #bbb;
+        }
+
+        .key.active {
+            background: #a78bfa;
+            box-shadow: 0 0 15px #a78bfa;
+        }
+
+        #status {
+            text-align: center;
+            margin-top: 20px;
+            color: #ddd6fe;
+            line-height: 1.5;
+        }
+
+        .note {
+            text-align: center;
+            color: #cbd5e1;
+            font-size: 13px;
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 500px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            button {
+                min-width: 100px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <h1>🎵 AI Music Generator</h1>
+
+        <p class="subtitle">
+            Create your own melodies with our music generation demo.
+            Choose a genre and generate a new tune!
+        </p>
+
+        <label for="genre">Select Music Genre</label>
+
+        <select id="genre">
+            <option value="classical">Classical</option>
+            <option value="jazz">Jazz</option>
+            <option value="electronic">Electronic</option>
+            <option value="ambient">Ambient</option>
+            <option value="happy">Happy Music</option>
+        </select>
+
+        <label for="tempo">Select Tempo</label>
+
+        <select id="tempo">
+            <option value="70">Slow - 70 BPM</option>
+            <option value="100" selected>Medium - 100 BPM</option>
+            <option value="130">Fast - 130 BPM</option>
+        </select>
+
+        <div class="buttons">
+            <button class="generate" onclick="generateMusic()">
+                ✨ Generate Music
+            </button>
+
+            <button class="play" onclick="playMusic()">
+                ▶ Play
+            </button>
+
+            <button class="stop" onclick="stopMusic()">
+                ■ Stop
+            </button>
+
+            <button class="download" onclick="downloadMIDI()">
+                ⬇ Download MIDI
+            </button>
+        </div>
+
+        <div class="visualizer" id="visualizer"></div>
+
+        <div class="keyboard" id="keyboard"></div>
+
+        <p id="status" role="status" aria-live="polite">
+            Click Generate Music to create your first melody.
+        </p>
+
+        <p class="note">
+            This is a browser-based music generation demo.
+            MIDI files can be opened in compatible music software.
+        </p>
+
+    </div>
+
+    <script>
+        let melody = [];
+        let audioContext = null;
+        let activeOscillators = [];
+        let playbackTimer = null;
+        let visualizerTimer = null;
+        let currentNote = 0;
+        let isPlaying = false;
+
+        const visualizer = document.getElementById("visualizer");
+        const keyboard = document.getElementById("keyboard");
+        const statusText = document.getElementById("status");
+
+        // Create visualizer bars.
+        for (let i = 0; i < 12; i++) {
+            const bar = document.createElement("div");
+            bar.className = "bar";
+            visualizer.appendChild(bar);
+        }
+
+        // Create piano keys.
+        for (let i = 0; i < 12; i++) {
+            const key = document.createElement("div");
+            key.className = "key";
+            keyboard.appendChild(key);
+        }
+
+        const bars = document.querySelectorAll(".bar");
+        const keys = document.querySelectorAll(".key");
+
+        // Musical scales represented by MIDI note numbers.
+        const scales = {
+            classical: [60, 62, 64, 65, 67, 69, 71, 72],
+            jazz: [60, 63, 65, 66, 67, 70, 72, 74],
+            electronic: [60, 62, 65, 67, 69, 72, 74, 76],
+            ambient: [60, 64, 67, 69, 72, 76, 79, 81],
+            happy: [60, 62, 64, 67, 69, 72, 74, 76]
+        };
+
+        // Generate a new melody.
+        function generateMusic() {
+            stopMusic();
+
+            const genre = document.getElementById("genre").value;
+            const scale = scales[genre];
+
+            melody = [];
+
+            // Generate 32 musical notes.
+            for (let i = 0; i < 32; i++) {
+                let note;
+
+                // Repeat a few earlier notes to create musical structure.
+                if (i > 8 && Math.random() < 0.25) {
+                    note = melody[i - 4].note;
+                } else {
+                    note = scale[Math.floor(Math.random() * scale.length)];
+                }
+
+                melody.push({
+                    note: note,
+                    duration: 1
+                });
+            }
+
+            currentNote = 0;
+
+            statusText.textContent =
+                "New " + genre + " melody generated! Press Play to listen.";
+
+            updateKeyboard(-1);
+        }
+
+        // Convert MIDI note number to frequency.
+        function noteToFrequency(note) {
+            return 440 * Math.pow(2, (note - 69) / 12);
+        }
+
+        // Play the generated melody.
+        async function playMusic() {
+            if (isPlaying) {
+                return;
+            }
+
+            if (melody.length === 0) {
+                generateMusic();
+            }
+
+            try {
+                if (!audioContext) {
+                    const AudioContextClass =
+                        window.AudioContext || window.webkitAudioContext;
+
+                    if (!AudioContextClass) {
+                        throw new Error("Audio is not supported by this browser.");
+                    }
+
+                    audioContext = new AudioContextClass();
+                }
+
+                await audioContext.resume();
+
+                isPlaying = true;
+
+                const bpm = Number(
+                    document.getElementById("tempo").value
+                );
+
+                const interval = 60000 / bpm;
+
+                statusText.textContent = "Playing your generated melody...";
+
+                playNextNote(interval);
+
+            } catch (error) {
+                isPlaying = false;
+                statusText.textContent =
+                    "Could not play audio. Try a modern browser.";
+            }
+        }
+
+        function playNextNote(interval) {
+            if (!isPlaying) {
+                return;
+            }
+
+            if (currentNote >= melody.length) {
+                isPlaying = false;
+                currentNote = 0;
+                updateKeyboard(-1);
+                stopVisualizer();
+
+                statusText.textContent =
+                    "Melody finished! Generate or play it again.";
+
+                return;
+            }
+
+            const note = melody[currentNote].note;
+            const frequency = noteToFrequency(note);
+
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            const genre = document.getElementById("genre").value;
+
+            oscillator.type =
+                genre === "electronic" ? "sawtooth" :
+                genre === "jazz" ? "triangle" :
+                "sine";
+
+            oscillator.frequency.value = frequency;
+
+            const now = audioContext.currentTime;
+
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.85 * interval / 1000);
+
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+
+            activeOscillators.push(oscillator);
+
+            oscillator.start(now);
+            oscillator.stop(now + 0.9 * interval / 1000);
+
+            oscillator.onended = function() {
+                oscillator.disconnect();
+                gain.disconnect();
+
+                activeOscillators = activeOscillators.filter(
+                    item => item !== oscillator
+                );
+            };
+
+            updateKeyboard(note);
+            animateVisualizer();
+
+            currentNote++;
+
+            playbackTimer = setTimeout(
+                () => playNextNote(interval),
+                interval
+            );
+        }
+
+        // Stop playback and clear visual effects.
+        function stopMusic() {
+            isPlaying = false;
+
+            clearTimeout(playbackTimer);
+
+            activeOscillators.forEach(oscillator => {
+                try {
+                    oscillator.stop();
+                } catch (error) {
+                    // Oscillator may have already stopped.
+                }
+            });
+
+            activeOscillators = [];
+            currentNote = 0;
+
+            updateKeyboard(-1);
+            stopVisualizer();
+
+            if (statusText) {
+                statusText.textContent =
+                    melody.length > 0
+                        ? "Playback stopped. Your melody is ready."
+                        : "Click Generate Music to create a melody.";
+            }
+        }
+
+        function updateKeyboard(note) {
+            keys.forEach((key, index) => {
+                key.classList.toggle(
+                    "active",
+                    note >= 0 && index === note % 12
+                );
+            });
+        }
+
+        // Animate the visualizer.
+        function animateVisualizer() {
+            clearInterval(visualizerTimer);
+
+            visualizerTimer = setInterval(() => {
+                if (!isPlaying) {
+                    stopVisualizer();
+                    return;
+                }
+
+                bars.forEach(bar => {
+                    bar.style.height =
+                        (10 + Math.random() * 110) + "px";
+                });
+            }, 120);
+        }
+
+        function stopVisualizer() {
+            clearInterval(visualizerTimer);
+
+            bars.forEach(bar => {
+                bar.style.height = "10px";
+            });
+        }
+
+        // Encode a number as a MIDI variable-length quantity.
+        function variableLength(value) {
+            let buffer = value & 0x7F;
+            const bytes = [];
+
+            while ((value >>= 7) > 0) {
+                buffer <<= 8;
+                buffer |= ((value & 0x7F) | 0x80);
+            }
+
+            while (true) {
+                bytes.push(buffer & 0xFF);
+
+                if (buffer & 0x80) {
+                    buffer >>= 8;
+                } else {
+                    break;
+                }
+            }
+
+            return bytes;
+        }
+
+        function write32(value) {
+            return [
+                (value >>> 24) & 255,
+                (value >>> 16) & 255,
+                (value >>> 8) & 255,
+                value & 255
+            ];
+        }
+
+        // Create and download a standard MIDI file.
+        function downloadMIDI() {
+            if (melody.length === 0) {
+                generateMusic();
+            }
+
+            const bpm = Number(
+                document.getElementById("tempo").value
+            );
+
+            const track = [];
+
+            // Set tempo in microseconds per quarter note.
+            const microseconds = Math.round(60000000 / bpm);
+
+            track.push(
+                0x00, 0xFF, 0x51, 0x03,
+                (microseconds >> 16) & 255,
+                (microseconds >> 8) & 255,
+                microseconds & 255
+            );
+
+            // Add each note to the MIDI track.
+            melody.forEach(item => {
+                const note = item.note;
+
+                // Note on, velocity 90, channel 1.
+                track.push(
+                    ...variableLength(0),
+                    0x90, note, 90
+                );
+
+                // Note off after one quarter note.
+                track.push(
+                    ...variableLength(240),
+                    0x80, note, 0
+                );
+            });
+
+            // End of MIDI track.
+            track.push(0x00, 0xFF, 0x2F, 0x00);
+
+            const header = [
+                0x4D, 0x54, 0x68, 0x64, // MThd
+                0x00, 0x00, 0x00, 0x06,
+                0x00, 0x00,             // Format 0
+                0x00, 0x01,             // One track
+                0x01, 0xE0              // 480 ticks per beat
+            ];
+
+            const trackHeader = [
+                0x4D, 0x54, 0x72, 0x6B, // MTrk
+                ...write32(track.length)
+            ];
+
+            const midiData = new Uint8Array([
+                ...header,
+                ...trackHeader,
+                ...track
+            ]);
+
+            const blob = new Blob(
+                [midiData],
+                { type: "audio/midi" }
+            );
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+
+            link.href = url;
+            link.download = "ai-generated-music.mid";
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            statusText.textContent =
+                "MIDI file downloaded successfully!";
+        }
+    </script>
+</body>
+</html>
